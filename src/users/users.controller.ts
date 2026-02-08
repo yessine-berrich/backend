@@ -17,6 +17,7 @@ import {
   ValidationPipe,
   NotFoundException,
   Res,
+  Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -171,5 +172,10 @@ export class UsersController {
   @Roles(userRole.ADMIN) // Seul l'ADMIN peut supprimer un compte
   async remove(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.remove(id);
+  }
+
+  @Get('search')
+  async search(@Query('q') q: string) {
+    return this.usersService.searchUsers(q);
   }
 }

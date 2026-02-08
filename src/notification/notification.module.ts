@@ -1,17 +1,16 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { NotificationService } from './notification.service';
+import { NotificationGateway } from './notification.gateway';
+import { Notification as NotificationEntity } from './entities/notification.entity';
 import { NotificationController } from './notification.controller';
-import { Notification } from './entities/notification.entity'; // Import de l'entité
 
 @Module({
   imports: [
-    // Indispensable pour injecter le repository dans le service
-    TypeOrmModule.forFeature([Notification]), 
+    TypeOrmModule.forFeature([NotificationEntity]),
   ],
+  providers: [NotificationService, NotificationGateway],
   controllers: [NotificationController],
-  providers: [NotificationService],
-  // TRÈS IMPORTANT : on l'exporte pour que CommentModule puisse l'utiliser
-  exports: [NotificationService], 
+  exports: [NotificationService, NotificationGateway, TypeOrmModule],
 })
 export class NotificationModule {}

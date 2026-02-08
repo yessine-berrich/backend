@@ -11,7 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { LoginDto } from './dto/login.dto';
 import { AuthService } from './auth.service';
 import { ResetPasswordDto } from './dto/reset-password.dto';
-import { In } from 'typeorm';
+import { ILike, In } from 'typeorm';
 
 @Injectable()
 export class UsersService {
@@ -174,5 +174,19 @@ export class UsersService {
     return {
       message: `L'utilisateur avec l'ID ${id} a été supprimé avec succès.`,
     };
+  }
+
+  async searchUsers(query: string) {
+    if (!query || query.length < 2) return [];
+
+    return await this.userRepository.find({
+      where: [
+        // On force le type à 'any' pour bypasser le conflit Browser/Node
+        { firstName: ILike(`${query}%`) as any },
+        { lastName: ILike(`${query}%`) as any }
+      ],
+      select: ['id', 'firstName', 'lastName'],
+      take: 5,
+    });
   }
 }

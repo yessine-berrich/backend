@@ -15,9 +15,9 @@ import { ArticleVersion } from './article/entities/article-version.entity';
 import { Article } from './article/entities/article.entity';
 import { User } from './users/entities/user.entity';
 import { MailModule } from './mail/mail.module';
-import { NotificationModule } from './notification/notification.module';
 import { MediaModule } from './media/media.module';
 import { SemanticModule } from './semantic/semantic.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
