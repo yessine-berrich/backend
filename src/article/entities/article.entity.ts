@@ -69,7 +69,7 @@ export class Article {
     array: true,
     nullable: true,
   })
-  embedding: number[];
+  embedding_vector: number[];
 
   @CreateDateColumn()
   createdAt: Date;

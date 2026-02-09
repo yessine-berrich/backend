@@ -16,8 +16,8 @@ import { Article } from './article/entities/article.entity';
 import { User } from './users/entities/user.entity';
 import { MailModule } from './mail/mail.module';
 import { MediaModule } from './media/media.module';
-import { SemanticModule } from './semantic/semantic.module';
 import { NotificationModule } from './notification/notification.module';
+import { SemanticSearchModule } from './semantic-search/semantic-search.module';
 
 @Module({
   imports: [
@@ -50,7 +50,7 @@ import { NotificationModule } from './notification/notification.module';
     CommentModule,
     NotificationModule,
     MediaModule,
-    SemanticModule,
+    SemanticSearchModule,
   ],
   controllers: [AppController],
   providers: [AppService],

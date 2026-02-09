@@ -8,8 +8,6 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 
 async function bootstrap() {
   // const app = await NestFactory.create(AppModule);
-
-  // Ajoutez <NestExpressApplication> ici
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   const dataSource = app.get(DataSource);
@@ -29,13 +27,12 @@ async function bootstrap() {
     new ValidationPipe({
       whitelist: true,
       forbidNonWhitelisted: true,
-      // transform: true,
+      transform: true,
     }),
   );
 
+  // app.setGlobalPrefix('api');           // ← ceci explique /api/..
+
   await app.listen(process.env.PORT ?? 3000);
-  // console.log(`🚀 Backend running on: ${await app.getUrl()}`);
-  // console.log(`📍 Port: ${process.env.PORT ?? 3000}`);
-  // console.log(`🌍 CORS enabled for: localhost:3000, localhost:5173`);
 }
 bootstrap();

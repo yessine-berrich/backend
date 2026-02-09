@@ -12,7 +12,6 @@ export class Category {
   @Column({ nullable: true })
   description: string;
 
-  // AJOUTE CECI :
   @OneToMany(() => Article, (article) => article.category)
   articles: Article[];
 }

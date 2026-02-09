@@ -1,3 +1,4 @@
+import { SemanticSearchModule } from './../semantic-search/semantic-search.module';
 import { Module } from '@nestjs/common';
 import { ArticleService } from './article.service';
 import { ArticleController } from './article.controller';
@@ -8,7 +9,6 @@ import { Category } from 'src/category/entities/category.entity';
 import { Tag } from 'src/tag/entities/tag.entity';
 import { UsersModule } from 'src/users/users.module';
 import { MediaModule } from 'src/media/media.module';
-import { SemanticModule } from 'src/semantic/semantic.module';
 import { ArticleView } from './entities/article-view.entity';
 
 @Module({
@@ -16,7 +16,7 @@ import { ArticleView } from './entities/article-view.entity';
     TypeOrmModule.forFeature([Article, ArticleVersion, Category, Tag, ArticleView]),
     UsersModule,
     MediaModule,
-    SemanticModule,
+    SemanticSearchModule
   ],
   controllers: [ArticleController],
   providers: [ArticleService],
