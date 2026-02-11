@@ -66,8 +66,8 @@ export class UsersController {
   }
 
   @Get(':id')
-  @UseGuards(AuthRolesGuard)
-  @Roles(userRole.ADMIN, userRole.EMPLOYEE)
+  // @UseGuards(AuthRolesGuard)
+  // @Roles(userRole.ADMIN, userRole.EMPLOYEE)
   async getUserById(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.getUserById(id);
   }

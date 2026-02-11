@@ -31,8 +31,7 @@ export class ArticleController {
   constructor(
     private readonly articleService: ArticleService,
     private readonly semanticSearchService: SemanticSearchService,
-        private readonly articleInteractionService: ArticleInteractionService,
-
+    private readonly articleInteractionService: ArticleInteractionService,
   ) {}
 
   @Post()
@@ -84,53 +83,73 @@ export class ArticleController {
   // ───────────────────────────────────────────────
 
   @Post('search')
-async semanticSearch(@Body() body: any) {
-  console.log('Body reçu :', JSON.stringify(body, null, 2)); // ← DEBUG
+  async semanticSearch(@Body() body: any) {
+    console.log('Body reçu :', JSON.stringify(body, null, 2)); // ← DEBUG
 
-  try {
-    const query = String(body.q ?? '').trim();
-    const limit = Number(body.limit ?? 10);
-    const minSimilarity = Number(body.minSimilarity ?? 0.72);
+    try {
+      const query = String(body.q ?? '').trim();
+      const limit = Number(body.limit ?? 10);
+      const minSimilarity = Number(body.minSimilarity ?? 0.72);
 
-    const statusStr = String(body.status ?? '').trim().toLowerCase();
-    const validStatus: ArticleStatus = Object.values(ArticleStatus).includes(statusStr as any)
-      ? (statusStr as ArticleStatus)
-      : ArticleStatus.PUBLISHED;
+      const statusStr = String(body.status ?? '')
+        .trim()
+        .toLowerCase();
+      const validStatus: ArticleStatus = Object.values(ArticleStatus).includes(
+        statusStr as any,
+      )
+        ? (statusStr as ArticleStatus)
+        : ArticleStatus.PUBLISHED;
 
-    const safeLimit = Math.max(1, Math.min(isNaN(limit) ? 10 : limit, 50));
-    const safeMinSimilarity = Math.max(0.1, Math.min(isNaN(minSimilarity) ? 0.72 : minSimilarity, 0.98));
+      const safeLimit = Math.max(1, Math.min(isNaN(limit) ? 10 : limit, 50));
+      const safeMinSimilarity = Math.max(
+        0.1,
+        Math.min(isNaN(minSimilarity) ? 0.72 : minSimilarity, 0.98),
+      );
 
-    if (!query) {
-      return { success: false, message: 'Champ "q" obligatoire', results: [] };
+      if (!query) {
+        return {
+          success: false,
+          message: 'Champ "q" obligatoire',
+          results: [],
+        };
+      }
+
+      console.log('Appel semanticSearch avec :', {
+        query,
+        safeLimit,
+        safeMinSimilarity,
+        validStatus,
+      });
+
+      const results = await this.articleService.semanticSearch(
+        query,
+        safeLimit,
+        safeMinSimilarity,
+        validStatus,
+      );
+
+      return {
+        success: true,
+        query,
+        params: {
+          limit: safeLimit,
+          minSimilarity: safeMinSimilarity,
+          status: validStatus,
+        },
+        found: results.length,
+        results,
+      };
+    } catch (err) {
+      console.error('ERREUR INTERNE dans search endpoint :', err);
+      return {
+        success: false,
+        message: 'Erreur serveur interne',
+        debug: err.message || 'Détails dans les logs serveur',
+      };
     }
-
-    console.log('Appel semanticSearch avec :', { query, safeLimit, safeMinSimilarity, validStatus });
-
-    const results = await this.articleService.semanticSearch(
-      query,
-      safeLimit,
-      safeMinSimilarity,
-      validStatus,
-    );
-
-    return {
-      success: true,
-      query,
-      params: { limit: safeLimit, minSimilarity: safeMinSimilarity, status: validStatus },
-      found: results.length,
-      results,
-    };
-  } catch (err) {
-    console.error('ERREUR INTERNE dans search endpoint :', err);
-    return {
-      success: false,
-      message: 'Erreur serveur interne',
-      debug: err.message || 'Détails dans les logs serveur',
-    };
   }
-}
 
-// LIKE ENDPOINT
+  // LIKE ENDPOINT
   @Post(':id/like')
   @Roles(userRole.ADMIN, userRole.EMPLOYEE)
   @UseGuards(AuthGuard)
@@ -139,7 +158,10 @@ async semanticSearch(@Body() body: any) {
     @CurrentPayload() payload: JwtPayloadType,
   ) {
     try {
-      const article = await this.articleInteractionService.toggleLike(id, payload.sub);
+      const article = await this.articleInteractionService.toggleLike(
+        id,
+        payload.sub,
+      );
       return {
         success: true,
         message: 'Like mis à jour avec succès',
@@ -147,7 +169,8 @@ async semanticSearch(@Body() body: any) {
           id: article.id,
           title: article.title,
           likesCount: article.likes?.length || 0,
-          isLiked: article.likes?.some(like => like.id === payload.sub) || false,
+          isLiked:
+            article.likes?.some((like) => like.id === payload.sub) || false,
         },
       };
     } catch (error) {
@@ -163,7 +186,10 @@ async semanticSearch(@Body() body: any) {
     @CurrentPayload() payload: JwtPayloadType,
   ) {
     try {
-      const article = await this.articleInteractionService.toggleBookmark(id, payload.sub);
+      const article = await this.articleInteractionService.toggleBookmark(
+        id,
+        payload.sub,
+      );
       return {
         success: true,
         message: 'Bookmark mis à jour avec succès',
@@ -171,7 +197,10 @@ async semanticSearch(@Body() body: any) {
           id: article.id,
           title: article.title,
           bookmarksCount: article.bookmarks?.length || 0,
-          isBookmarked: article.bookmarks?.some(bookmark => bookmark.id === payload.sub) || false,
+          isBookmarked:
+            article.bookmarks?.some(
+              (bookmark) => bookmark.id === payload.sub,
+            ) || false,
         },
       };
     } catch (error) {
@@ -187,81 +216,137 @@ async semanticSearch(@Body() body: any) {
     @CurrentPayload() payload: JwtPayloadType,
   ) {
     try {
-      const interactions = await this.articleService.getArticleInteractions(id, payload.sub);
+      const interactions = await this.articleService.getArticleInteractions(
+        id,
+        payload.sub,
+      );
       return {
         success: true,
         interactions,
       };
     } catch (error) {
-      throw new BadRequestException(error.message || 'Erreur lors de la récupération des interactions');
+      throw new BadRequestException(
+        error.message || 'Erreur lors de la récupération des interactions',
+      );
     }
   }
 
   // GET USER'S LIKED ARTICLES
   @Get('user/liked')
   @UseGuards(AuthGuard)
-  async getUserLikedArticles(
-    @CurrentPayload() payload: JwtPayloadType,
-  ) {
+  async getUserLikedArticles(@CurrentPayload() payload: JwtPayloadType) {
     try {
-      const articles = await this.articleInteractionService.getUserLikedArticles(payload.sub);
+      const articles =
+        await this.articleInteractionService.getUserLikedArticles(payload.sub);
       return {
         success: true,
         count: articles.length,
-        articles: articles.map(article => ({
+        articles: articles.map((article) => ({
           id: article.id,
           title: article.title,
           description: article.content?.substring(0, 150) + '...' || '',
-          author: article.author ? {
-            id: article.author.id,
-            name: `${article.author.firstName} ${article.author.lastName}`,
-            avatar: article.author.profileImage,
-          } : null,
-          category: article.category ? {
-            id: article.category.id,
-            name: article.category.name,
-          } : null,
+          author: article.author
+            ? {
+                id: article.author.id,
+                name: `${article.author.firstName} ${article.author.lastName}`,
+                avatar: article.author.profileImage,
+              }
+            : null,
+          category: article.category
+            ? {
+                id: article.category.id,
+                name: article.category.name,
+              }
+            : null,
           createdAt: article.createdAt,
           likesCount: article.likes?.length || 0,
           bookmarksCount: article.bookmarks?.length || 0,
         })),
       };
     } catch (error) {
-      throw new BadRequestException(error.message || 'Erreur lors de la récupération des articles likés');
+      throw new BadRequestException(
+        error.message || 'Erreur lors de la récupération des articles likés',
+      );
     }
   }
 
   // GET USER'S BOOKMARKED ARTICLES
   @Get('user/bookmarked')
   @UseGuards(AuthGuard)
-  async getUserBookmarkedArticles(
-    @CurrentPayload() payload: JwtPayloadType,
-  ) {
+  async getUserBookmarkedArticles(@CurrentPayload() payload: JwtPayloadType) {
     try {
-      const articles = await this.articleInteractionService.getUserBookmarkedArticles(payload.sub);
+      const articles =
+        await this.articleInteractionService.getUserBookmarkedArticles(
+          payload.sub,
+        );
       return {
         success: true,
         count: articles.length,
-        articles: articles.map(article => ({
+        articles: articles.map((article) => ({
           id: article.id,
           title: article.title,
           description: article.content?.substring(0, 150) + '...' || '',
-          author: article.author ? {
-            id: article.author.id,
-            name: `${article.author.firstName} ${article.author.lastName}`,
-            avatar: article.author.profileImage,
-          } : null,
-          category: article.category ? {
-            id: article.category.id,
-            name: article.category.name,
-          } : null,
+          author: article.author
+            ? {
+                id: article.author.id,
+                name: `${article.author.firstName} ${article.author.lastName}`,
+                avatar: article.author.profileImage,
+              }
+            : null,
+          category: article.category
+            ? {
+                id: article.category.id,
+                name: article.category.name,
+              }
+            : null,
           createdAt: article.createdAt,
           likesCount: article.likes?.length || 0,
           bookmarksCount: article.bookmarks?.length || 0,
         })),
       };
     } catch (error) {
-      throw new BadRequestException(error.message || 'Erreur lors de la récupération des articles bookmarkés');
+      throw new BadRequestException(
+        error.message ||
+          'Erreur lors de la récupération des articles bookmarkés',
+      );
+    }
+  }
+
+  // Dans votre controller NestJS
+  @Get('user/:userId')
+  async getArticlesByUserId(@Param('userId', ParseIntPipe) userId: number) {
+    try {
+      const articles = await this.articleService.getArticlesByUserId(userId);
+
+      // Retourner directement le tableau d'articles
+      return articles.map((article) => ({
+        id: article.id,
+        title: article.title,
+        content: article.content,
+        description: article.content?.substring(0, 150) + '...' || '',
+        author: article.author
+          ? {
+              id: article.author.id,
+              name: `${article.author.firstName} ${article.author.lastName}`,
+              avatar: article.author.profileImage,
+            }
+          : null,
+        category: article.category
+          ? {
+              id: article.category.id,
+              name: article.category.name,
+            }
+          : null,
+        createdAt: article.createdAt,
+        status: article.status,
+        stats: {
+          likes: article.likes?.length || 0,
+          comments: article.comments?.length || 0,
+          views: article.viewsCount || 0,
+        },
+      }));
+    } catch (error) {
+      throw new BadRequestException(error.message);
     }
   }
 }

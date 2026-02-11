@@ -321,4 +321,12 @@ await this.articleRepository.query(
   async getUserBookmarkedArticles(userId: number): Promise<Article[]> {
     return this.articleInteractionService.getUserBookmarkedArticles(userId);
   }
+
+  async getArticlesByUserId(userId: number): Promise<Article[]> {
+    return this.articleRepository.find({
+      where: { author: { id: userId } },
+      relations: ['author', 'category', 'tags', 'media'],
+      order: { createdAt: 'DESC' },
+    });
+  }
 }
