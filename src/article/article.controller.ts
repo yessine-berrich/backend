@@ -45,10 +45,56 @@ export class ArticleController {
     } as User);
   }
 
-  @Get()
-  findAll() {
-    return this.articleService.findAll();
-  }
+ // DANS article.controller.ts
+@Get()
+async findAll(@CurrentPayload() payload?: JwtPayloadType) {
+  const articles = await this.articleService.findAll();
+  
+  // Récupérer l'ID utilisateur si connecté
+  const userId = payload?.sub;
+  
+  return articles.map(article => ({
+    id: article.id,
+    title: article.title,
+    content: article.content,
+    description: article.content?.substring(0, 150) + '...' || '',
+    status: article.status,
+    viewsCount: article.viewsCount || 0,
+    createdAt: article.createdAt,
+    updatedAt: article.updatedAt,
+    
+    // Auteur
+    author: article.author ? {
+      id: article.author.id,
+      name: `${article.author.firstName} ${article.author.lastName}`,
+      initials: `${(article.author.firstName?.charAt(0) || '')}${(article.author.lastName?.charAt(0) || '')}`,
+          avatar: article.author.profileImage,
+    } : null,
+    
+    // Catégorie
+    category: article.category ? {
+      id: article.category.id,
+      name: article.category.name,
+      slug: article.category.name?.toLowerCase().replace(/\s+/g, '-') || '',
+    } : null,
+    
+    // Tags
+    tags: article.tags?.map(tag => tag.name) || [],
+    
+    // ✅ STATISTIQUES
+    stats: {
+      likes: article.likes?.length || 0,
+      comments: article.comments?.length || 0,
+      views: article.viewsCount || 0,
+    },
+    
+    // ✅ ÉTATS DE L'UTILISATEUR CONNECTÉ
+    isLiked: userId ? article.likes?.some(like => like.id === userId) || false : false,
+    isBookmarked: userId ? article.bookmarks?.some(bookmark => bookmark.id === userId) || false : false,
+    
+    isFeatured: false,
+  }));
+}
 
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
@@ -238,87 +284,81 @@ export class ArticleController {
     }
   }
 
-  // GET USER'S LIKED ARTICLES
-  @Get('user/liked')
-  @UseGuards(AuthGuard)
-  async getUserLikedArticles(@CurrentPayload() payload: JwtPayloadType) {
-    try {
-      const articles =
-        await this.articleInteractionService.getUserLikedArticles(payload.sub);
-      return {
-        success: true,
-        count: articles.length,
-        articles: articles.map((article) => ({
-          id: article.id,
-          title: article.title,
-          description: article.content?.substring(0, 150) + '...' || '',
-          author: article.author
-            ? {
-                id: article.author.id,
-                name: `${article.author.firstName} ${article.author.lastName}`,
-                avatar: article.author.profileImage,
-              }
-            : null,
-          category: article.category
-            ? {
-                id: article.category.id,
-                name: article.category.name,
-              }
-            : null,
-          createdAt: article.createdAt,
-          likesCount: article.likes?.length || 0,
-          bookmarksCount: article.bookmarks?.length || 0,
-        })),
-      };
-    } catch (error) {
-      throw new BadRequestException(
-        error.message || 'Erreur lors de la récupération des articles likés',
-      );
-    }
-  }
+  // ============================================
+// À MODIFIER DANS ArticleController
+// ============================================
 
-  // GET USER'S BOOKMARKED ARTICLES
-  @Get('user/bookmarked')
-  @UseGuards(AuthGuard)
-  async getUserBookmarkedArticles(@CurrentPayload() payload: JwtPayloadType) {
-    try {
-      const articles =
-        await this.articleInteractionService.getUserBookmarkedArticles(
-          payload.sub,
-        );
-      return {
-        success: true,
-        count: articles.length,
-        articles: articles.map((article) => ({
-          id: article.id,
-          title: article.title,
-          description: article.content?.substring(0, 150) + '...' || '',
-          author: article.author
-            ? {
-                id: article.author.id,
-                name: `${article.author.firstName} ${article.author.lastName}`,
-                avatar: article.author.profileImage,
-              }
-            : null,
-          category: article.category
-            ? {
-                id: article.category.id,
-                name: article.category.name,
-              }
-            : null,
-          createdAt: article.createdAt,
-          likesCount: article.likes?.length || 0,
-          bookmarksCount: article.bookmarks?.length || 0,
-        })),
-      };
-    } catch (error) {
-      throw new BadRequestException(
-        error.message ||
-          'Erreur lors de la récupération des articles bookmarkés',
-      );
-    }
+// DANS article.controller.ts - GET /user/liked
+@Get('user/liked')
+@UseGuards(AuthGuard)
+async getUserLikedArticles(@CurrentPayload() payload: JwtPayloadType) {
+  try {
+    const articles = await this.articleInteractionService.getUserLikedArticles(payload.sub);
+    return {
+      success: true,
+      count: articles.length,
+      articles: articles.map((article) => ({
+        id: article.id,
+        title: article.title,
+        description: article.content?.substring(0, 150) + '...' || '',
+        author: article.author ? {
+          id: article.author.id,
+          name: `${article.author.firstName} ${article.author.lastName}`,
+          avatar: article.author.profileImage,
+        } : null,
+        category: article.category ? {
+          id: article.category.id,
+          name: article.category.name,
+        } : null,
+        createdAt: article.createdAt,
+        likesCount: article.likes?.length || 0,
+        bookmarksCount: article.bookmarks?.length || 0,
+        commentsCount: article.comments?.length || 0,
+        // ✅ AJOUTER CES LIGNES
+        isLiked: true, // Forcément true car ce sont ses likes
+        isBookmarked: article.bookmarks?.some(bookmark => bookmark.id === payload.sub) || false,
+      })),
+    };
+  } catch (error) {
+    throw new BadRequestException(error.message);
   }
+}
 
+// DANS article.controller.ts - GET /user/bookmarked
+@Get('user/bookmarked')
+@UseGuards(AuthGuard)
+async getUserBookmarkedArticles(@CurrentPayload() payload: JwtPayloadType) {
+  try {
+    const articles = await this.articleInteractionService.getUserBookmarkedArticles(payload.sub);
+    return {
+      success: true,
+      count: articles.length,
+      articles: articles.map((article) => ({
+        id: article.id,
+        title: article.title,
+        description: article.content?.substring(0, 150) + '...' || '',
+        author: article.author ? {
+          id: article.author.id,
+          name: `${article.author.firstName} ${article.author.lastName}`,
+          avatar: article.author.profileImage,
+        } : null,
+        category: article.category ? {
+          id: article.category.id,
+          name: article.category.name,
+        } : null,
+        createdAt: article.createdAt,
+        likesCount: article.likes?.length || 0,
+        bookmarksCount: article.bookmarks?.length || 0,
+        commentsCount: article.comments?.length || 0,
+        // ✅ AJOUTER CES LIGNES
+        isLiked: article.likes?.some(like => like.id === payload.sub) || false,
+        isBookmarked: true, // Forcément true car ce sont ses bookmarks
+      })),
+    };
+  } catch (error) {
+    throw new BadRequestException(error.message);
+  }
+}
   // Dans votre controller NestJS
   @Get('user/:userId')
   async getArticlesByUserId(@Param('userId', ParseIntPipe) userId: number) {

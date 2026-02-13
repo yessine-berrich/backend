@@ -12,6 +12,7 @@ export class ArticleInteractionService {
     private readonly articleRepository: Repository<Article>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    
   ) {}
 
   async toggleLike(articleId: number, userId: number): Promise<Article> {
@@ -154,6 +155,7 @@ export class ArticleInteractionService {
         'likedArticles.likes',
         'likedArticles.bookmarks',
         'likedArticles.tags',
+        'likedArticles.comments',
       ],
     });
 
@@ -174,6 +176,7 @@ export class ArticleInteractionService {
         'bookmarkedArticles.likes',
         'bookmarkedArticles.bookmarks',
         'bookmarkedArticles.tags',
+        'bookmarkedArticles.comments',
       ],
     });
 

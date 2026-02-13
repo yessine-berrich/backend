@@ -71,4 +71,26 @@ export class CommentController {
   ) {
     return this.commentService.remove(id, payload.sub);
   }
+
+  // /home/pfe2026/Desktop/PfeProject/backend/src/comment/comment.controller.ts
+
+// AJOUTEZ CES ENDPOINTS:
+
+/**
+ * Récupérer tous les commentaires de l'utilisateur connecté
+ */
+@Get('user')
+@UseGuards(AuthGuard)
+async getUserComments(@CurrentPayload() payload: JwtPayloadType) {
+  return this.commentService.findByUser(payload.sub);
+}
+
+/**
+ * Récupérer les articles commentés par l'utilisateur
+ */
+@Get('user/articles')
+@UseGuards(AuthGuard)
+async getUserCommentedArticles(@CurrentPayload() payload: JwtPayloadType) {
+  return this.commentService.findCommentedArticlesByUser(payload.sub);
+}
 }
