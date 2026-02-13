@@ -231,4 +231,83 @@ async toggleLike(commentId: number, userId: number) {
       withReplies,
     };
   }
+
+  // /home/pfe2026/Desktop/PfeProject/backend/src/comment/comment.service.ts
+
+/**
+ * Récupérer tous les commentaires d'un utilisateur
+ */
+async findByUser(userId: number): Promise<Comment[]> {
+  return this.commentRepository.find({
+    where: { author: { id: userId } },
+    relations: [
+      'article', 
+      'article.author', 
+      'article.category', 
+      'article.tags',
+      'article.likes',
+      'article.bookmarks',
+      'article.comments'
+    ],
+    order: { createdAt: 'DESC' }
+  });
+}
+
+/**
+ * Récupérer les articles commentés par l'utilisateur (uniques)
+ */
+async findCommentedArticlesByUser(userId: number) {
+  // Récupérer tous les commentaires de l'utilisateur avec les articles
+  const comments = await this.commentRepository.find({
+    where: { author: { id: userId } },
+    relations: [
+      'article',
+      'article.author',
+      'article.category',
+      'article.tags',
+      'article.likes',
+      'article.bookmarks',
+      'article.comments'
+    ],
+    order: { createdAt: 'DESC' }
+  });
+
+  // Grouper par article et ajouter des métadonnées
+  const articleMap = new Map();
+  
+  comments.forEach(comment => {
+    if (comment.article && !articleMap.has(comment.article.id)) {
+      const article = comment.article;
+      
+      // Compter le nombre de commentaires de l'utilisateur sur cet article
+      const userCommentsCount = comments.filter(
+        c => c.article?.id === article.id
+      ).length;
+      
+      // Dernier commentaire de l'utilisateur sur cet article
+      const lastUserComment = comments
+        .filter(c => c.article?.id === article.id)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+      
+      articleMap.set(article.id, {
+        ...article,
+        userCommentsCount,
+        lastCommentDate: lastUserComment?.createdAt,
+        isLiked: article.likes?.some(like => like.id === userId) || false,
+        isBookmarked: article.bookmarks?.some(bookmark => bookmark.id === userId) || false,
+        commentsCount: article.comments?.length || 0,
+        likesCount: article.likes?.length || 0,
+        bookmarksCount: article.bookmarks?.length || 0
+      });
+    }
+  });
+
+  const articles = Array.from(articleMap.values());
+  
+  return {
+    success: true,
+    count: articles.length,
+    articles
+  };
+}
 }

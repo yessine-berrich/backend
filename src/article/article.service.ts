@@ -235,7 +235,7 @@ ${article.content}
 
   async findAll() {
     return this.articleRepository.find({
-      relations: ['author', 'category', 'tags', 'media'],
+      relations: ['author', 'category', 'tags', 'media','likes', 'bookmarks', 'comments'],
       order: { createdAt: 'DESC' },
     });
   }
