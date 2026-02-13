@@ -12,6 +12,7 @@ import { MediaModule } from 'src/media/media.module';
 import { ArticleView } from './entities/article-view.entity';
 import { User } from 'src/users/entities/user.entity';
 import { ArticleInteractionService } from './article-interaction.service';
+import { ContentModerationModule } from 'src/content-moderation/content-moderation.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ArticleInteractionService } from './article-interaction.service';
     UsersModule,
     MediaModule,
     SemanticSearchModule,
+    ContentModerationModule
   ],
   controllers: [ArticleController],
   providers: [ArticleService, ArticleInteractionService],

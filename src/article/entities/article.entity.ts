@@ -78,6 +78,26 @@ export class Article {
   })
   embedding_vector: number[];
 
+  @Column({ type: 'jsonb', nullable: true })
+  moderationResult?: {
+    isFlagged: boolean;
+    score: number; // 0.0 à 1.0
+    categories: string[];
+    reason?: string;
+    confidence: number;
+    model: string;
+    moderatedAt: Date;
+  };
+
+  @Column({ default: false })
+  isAutoModerated: boolean;
+
+  @Column({ nullable: true })
+  moderationScore?: number;
+
+  @Column({ type: 'text', nullable: true })
+  rejectionReason?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

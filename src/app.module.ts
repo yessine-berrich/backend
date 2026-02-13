@@ -19,6 +19,7 @@ import { MediaModule } from './media/media.module';
 import { NotificationModule } from './notification/notification.module';
 import { SemanticSearchModule } from './semantic-search/semantic-search.module';
 import { RagModule } from './rag/rag.module';
+import { ContentModerationModule } from './content-moderation/content-moderation.module';
 
 @Module({
   imports: [
@@ -53,6 +54,7 @@ import { RagModule } from './rag/rag.module';
     MediaModule,
     SemanticSearchModule,
     RagModule,
+    ContentModerationModule,
   ],
   controllers: [AppController],
   providers: [AppService],

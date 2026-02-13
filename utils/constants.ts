@@ -8,4 +8,5 @@ export enum ArticleStatus {
   PUBLISHED = 'published',
   PENDING = 'pending',
   ARCHIVED = 'archived',
+  REJECTED = 'rejected',
 }

@@ -24,11 +24,13 @@ import { CurrentPayload } from 'src/users/decorators/current-payload.decorator';
 import type { JwtPayloadType } from 'utils/types';
 import { User } from 'src/users/entities/user.entity';
 import { SemanticSearchService } from 'src/semantic-search/semantic-search.service';
+import { UsersService } from 'src/users/users.service';
 
 @Controller('api/articles')
 export class ArticleController {
   constructor(
     private readonly articleService: ArticleService,
+    private readonly userService: UsersService,
     private readonly semanticSearchService: SemanticSearchService,
     private readonly articleInteractionService: ArticleInteractionService,
   ) {}
@@ -62,10 +64,10 @@ export class ArticleController {
   async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateArticleDto: UpdateArticleDto,
-    @CurrentPayload() payload: JwtPayloadType, // ← AJOUTÉ ICI
+    @CurrentPayload() payload: JwtPayloadType,
   ) {
-    const user = { id: payload.sub } as User; // ou mieux : await this.userService.findOne(payload.sub)
-    return this.articleService.update(id, updateArticleDto, user);
+    const user = await this.userService.getUserById(payload.sub)
+    return this.articleService.update(id, updateArticleDto, user as User);
   }
 
   // ─── DELETE ────────────────────────────────────────
