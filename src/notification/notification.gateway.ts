@@ -8,29 +8,41 @@ import {
 import { Server, Socket } from 'socket.io';
 
 @WebSocketGateway({
-  cors: {
-    origin: '*', // À restreindre en production (ex: 'http://localhost:3000')
-  },
+  cors: { origin: '*' }, // À sécuriser en prod !
+  namespace: '/notifications', // optionnel mais recommandé
 })
 export class NotificationGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
 
-  // Gère la connexion : on place l'utilisateur dans une "room" unique via son ID
+  private connectedUsers = new Map<number, string>(); // userId → socket.id
+
   handleConnection(client: Socket) {
-    const userId = client.handshake.query.userId;
-    if (userId) {
-      client.join(`user_${userId}`);
-      console.log(`Client connecté : user_${userId}`);
+    const userId = Number(client.handshake.query.userId || client.handshake.auth?.userId);
+
+    if (!userId || isNaN(userId)) {
+      client.disconnect();
+      return;
     }
+
+    this.connectedUsers.set(userId, client.id);
+    client.join(`user_${userId}`);
+
+    console.log(`→ User ${userId} connecté (socket ${client.id})`);
   }
 
   handleDisconnect(client: Socket) {
-    console.log('Client déconnecté');
+    const userId = [...this.connectedUsers.entries()].find(
+      ([, sid]) => sid === client.id,
+    )?.[0];
+
+    if (userId) {
+      this.connectedUsers.delete(userId);
+      console.log(`← User ${userId} déconnecté`);
+    }
   }
 
-  // Méthode appelée depuis ton Service pour envoyer la notification
-  sendNotification(recipientId: number, notification: any) {
-    this.server.to(`user_${recipientId}`).emit('new_notification', notification);
+  sendToUser(userId: number, payload: any) {
+    this.server.to(`user_${userId}`).emit('new_notification', payload);
   }
 }

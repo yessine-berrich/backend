@@ -8,6 +8,7 @@ import { Comment } from './entities/comment.entity';
 import { User } from 'src/users/entities/user.entity';
 import { Notification } from 'src/notification/entities/notification.entity';
 import { Article } from 'src/article/entities/article.entity';
+import { ArticleModule } from 'src/article/article.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { Article } from 'src/article/entities/article.entity';
     // 2. Importe les modules dont les services sont utilisés dans CommentService
     UsersModule,
     NotificationModule,
+    ArticleModule,
   ],
   controllers: [CommentController],
   providers: [CommentService],

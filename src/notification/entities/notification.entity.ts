@@ -1,11 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, CreateDateColumn } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
-import { Comment as CommentEntity } from '../../comment/entities/comment.entity';
-
-export enum NotificationType {
-  MENTION = 'mention',
-  REPLY = 'reply',
-}
+import { NotificationType } from 'utils/constants';
 
 @Entity('notifications')
 export class Notification {
@@ -18,14 +13,17 @@ export class Notification {
   @Column({ default: false })
   isRead: boolean;
 
-  @ManyToOne(() => User)
+  @Column({ type: 'text', nullable: true })
+  message?: string;               // ← texte court affiché (ex: "Yessine a répondu à votre commentaire")
+
+  @Column({ type: 'jsonb', nullable: true })
+  data?: Record<string, any>;     // ← payload flexible (articleId, commentId, etc.)
+
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
   recipient: User;
 
-  @ManyToOne(() => User)
-  sender: User;
-
-  @ManyToOne(() => CommentEntity, { onDelete: 'CASCADE' })
-  comment: CommentEntity;
+  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+  sender?: User;                  // peut être null si système
 
   @CreateDateColumn()
   createdAt: Date;

@@ -6,10 +6,12 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { IsNull, Repository } from 'typeorm';
 import { Comment } from './entities/comment.entity';
-import { User } from '../users/entities/user.entity';
 import { NotificationGateway } from 'src/notification/notification.gateway';
 import { NotificationService } from 'src/notification/notification.service';
 import { NotificationType } from 'utils/constants';
+import { Article } from 'src/article/entities/article.entity';
+import { User } from 'src/users/entities/user.entity';
+import { ArticleService } from 'src/article/article.service';
 
 @Injectable()
 export class CommentService {
@@ -21,6 +23,8 @@ export class CommentService {
 
     private readonly notificationService: NotificationService,
     private readonly notificationGateway: NotificationGateway,
+    private readonly articleService: ArticleService,
+
   ) {}
 
   async create(
@@ -32,8 +36,15 @@ export class CommentService {
     },
     userId: number,
   ): Promise<Comment> {
-    // Récupérer l'utilisateur
-    const user = await this.userRepository.findOne({
+    // Récupérer l'article (pour connaître son auteur)
+    const article = await this.articleService.findOne(createCommentDto.articleId);
+
+    if (!article) {
+      throw new NotFoundException('Article non trouvé');
+    }
+
+    // Récupérer l'utilisateur qui commente
+    const user = await this.userRepository.findOneOrFail({
       where: { id: userId },
     });
 
@@ -80,24 +91,63 @@ export class CommentService {
       comment.mentionedUsers = mentionedUsers;
     }
 
-    // const savedComment = await this.commentRepository.save(comment);
-
-    // // Retourner avec les relations nécessaires
-    // return await this.commentRepository.findOneOrFail({
-    //   where: { id: savedComment.id },
-    //   relations: [
-    //     'author',
-    //     'article',
-    //     'parent',
-    //     'mentionedUsers',
-    //     'replies',
-    //     'likes',
-    //   ],
-    // });
-
     const savedComment = await this.commentRepository.save(comment);
 
-    const fullComment = await this.commentRepository.findOneOrFail({
+    if (comment.parent) {
+      const parentAuthor = comment.parent.author;
+      if (parentAuthor.id !== userId) {
+        // ne pas notifier soi-même
+        await this.notificationService.createAndNotify(
+          NotificationType.REPLY,
+          parentAuthor.id, // destinataire = auteur du parent
+          user, // expéditeur = celui qui répond
+          `${user.firstName} a répondu à votre commentaire`,
+          {
+            commentId: savedComment.id,
+            articleId: createCommentDto.articleId,
+            parentCommentId: comment.parent.id,
+          },
+        );
+      }
+    }
+
+    if (!comment.parent) {
+      const articleAuthor = article.author;
+      if (articleAuthor.id !== userId) {
+        // ne pas notifier soi-même
+        await this.notificationService.createAndNotify(
+          NotificationType.NEW_COMMENT,
+          articleAuthor.id,
+          user,
+          `${user.firstName} a commenté votre article`,
+          {
+            commentId: savedComment.id,
+            articleId: createCommentDto.articleId,
+          },
+        );
+      }
+    }
+
+    // Cas 2 : Mentions → notifier chaque personne mentionnée
+    if (comment.mentionedUsers?.length) {
+      for (const mentioned of comment.mentionedUsers) {
+        if (mentioned.id !== userId) {
+          await this.notificationService.createAndNotify(
+            NotificationType.MENTION,
+            mentioned.id,
+            user,
+            `${user.firstName} vous a mentionné dans un commentaire`,
+            {
+              commentId: savedComment.id,
+              articleId: createCommentDto.articleId,
+            },
+          );
+        }
+      }
+    }
+
+    // Retourner avec les relations nécessaires
+    return await this.commentRepository.findOneOrFail({
       where: { id: savedComment.id },
       relations: [
         'author',
@@ -108,100 +158,6 @@ export class CommentService {
         'likes',
       ],
     });
-
-    // ────────────────────────────────────────────────
-    // Notifications
-    // ────────────────────────────────────────────────
-
-    const sender = fullComment.author;
-
-    // Cas 1 : Réponse à un commentaire → notifier l'auteur du parent
-    if (fullComment.parent) {
-      const parentAuthorId = fullComment.parent.author.id;
-      if (parentAuthorId !== userId) {
-        // ne pas se notifier soi-même
-        await this.sendCommentNotification(
-          NotificationType.REPLY,
-          parentAuthorId,
-          sender,
-          fullComment,
-        );
-      }
-    }
-
-    // Cas 2 : Mentions → notifier chaque personne mentionnée
-    if (fullComment.mentionedUsers && fullComment.mentionedUsers.length > 0) {
-      for (const mentioned of fullComment.mentionedUsers) {
-        if (mentioned.id !== userId) {
-          await this.sendCommentNotification(
-            NotificationType.MENTION,
-            mentioned.id,
-            sender,
-            fullComment,
-          );
-        }
-      }
-    }
-
-    // Optionnel : notifier l'auteur de l'article (nouveau commentaire)
-    // const articleAuthorId = fullComment.article.author.id;
-    // if (articleAuthorId !== userId) { ... }
-
-    // Retourner le commentaire complet
-    return fullComment;
-  }
-
-  private async sendCommentNotification(
-    type: NotificationType,
-    recipientId: number,
-    sender: User,
-    comment: Comment,
-  ): Promise<void> {
-    // 1. Créer l'enregistrement en base
-    const notification = this.notificationService.notificationRepository.create(
-      {
-        type,
-        recipient: { id: recipientId } as User,
-        sender,
-        comment,
-      },
-    );
-
-    const savedNotif =
-      await this.notificationService.notificationRepository.save(notification);
-
-    // 2. Charger la notification complète avec relations
-    const fullNotif =
-      await this.notificationService.notificationRepository.findOne({
-        where: { id: savedNotif.id },
-        relations: ['sender', 'comment', 'comment.author', 'comment.article'],
-      });
-
-    if (!fullNotif) return;
-
-    // 3. Format léger pour le frontend
-    const payload = {
-      id: fullNotif.id,
-      type: fullNotif.type,
-      isRead: fullNotif.isRead,
-      createdAt: fullNotif.createdAt,
-      sender: {
-        id: fullNotif.sender.id,
-        name: `${fullNotif.sender.firstName} ${fullNotif.sender.lastName}`.trim(),
-        avatar: fullNotif.sender.profileImage,
-      },
-      comment: {
-        id: fullNotif.comment.id,
-        content:
-          fullNotif.comment.content.substring(0, 120) +
-          (fullNotif.comment.content.length > 120 ? '...' : ''),
-        articleId: fullNotif.comment.article?.id,
-        articleTitle: fullNotif.comment.article?.title || 'Article',
-      },
-    };
-
-    // 4. Envoyer en temps réel via WebSocket
-    this.notificationGateway.sendNotification(recipientId, payload);
   }
 
   async findByArticle(

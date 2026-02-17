@@ -14,4 +14,5 @@ export enum ArticleStatus {
 export enum NotificationType {
   MENTION = 'mention',
   REPLY = 'reply',
+  NEW_COMMENT = 'new_comment',
 }
