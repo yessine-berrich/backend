@@ -8,7 +8,7 @@ import { Notification as NotificationEntity } from './entities/notification.enti
 export class NotificationService {
   constructor(
     @InjectRepository(NotificationEntity)
-    private readonly notificationRepository: Repository<NotificationEntity>,
+    readonly notificationRepository: Repository<NotificationEntity>,
   ) {}
 
   // Récupérer l'historique pour le Controller
@@ -26,7 +26,5 @@ export class NotificationService {
     await this.notificationRepository.update(id, { isRead: true });
     return { success: true };
   }
-
-  // Cette méthode est celle que tu as déjà dans ton entité/service pour la création
-  // Elle est utilisée par le CommentService
+  
 }

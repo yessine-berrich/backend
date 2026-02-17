@@ -10,3 +10,8 @@ export enum ArticleStatus {
   ARCHIVED = 'archived',
   REJECTED = 'rejected',
 }
+
+export enum NotificationType {
+  MENTION = 'mention',
+  REPLY = 'reply',
+}

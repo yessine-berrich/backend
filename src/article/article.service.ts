@@ -42,101 +42,101 @@ export class ArticleService {
   // CREATE ─ avec première version
   // ────────────────────────────────────────────────
   async create(
-  createArticleDto: CreateArticleDto,
-  user: User,
-): Promise<Article> {
-  const {
-    tagIds,
-    categoryId,
-    media: mediaDtos,
-    ...articleData
-  } = createArticleDto;
+    createArticleDto: CreateArticleDto,
+    user: User,
+  ): Promise<Article> {
+    const {
+      tagIds,
+      categoryId,
+      media: mediaDtos,
+      ...articleData
+    } = createArticleDto;
 
-  // Déterminer le statut initial selon le rôle (exemple simple)
-  let initialStatus = ArticleStatus.DRAFT;
+    // Déterminer le statut initial selon le rôle (exemple simple)
+    let initialStatus = ArticleStatus.DRAFT;
 
-  if (
-    createArticleDto.status &&
-    Object.values(ArticleStatus).includes(createArticleDto.status)
-  ) {
-    initialStatus = createArticleDto.status;
-  }
-
-  const article = this.articleRepository.create({
-    ...articleData,
-    author: user,
-    category: { id: categoryId },
-    tags: tagIds?.map((id) => ({ id })) || [],
-    status: initialStatus,
-  });
-
-  // Sauvegarde initiale (nécessaire pour avoir un ID)
-  let savedArticle = await this.articleRepository.save(article);
-
-  // Gestion des médias (après avoir l'ID)
-  if (mediaDtos?.length) {
-    const mediaPromises = mediaDtos.map((dto) =>
-      this.mediaService.create({
-        ...dto,
-        articleId: savedArticle.id,
-        type: this.mediaService.getMediaTypeFromMimeType(dto.mimetype),
-      }),
-    );
-    savedArticle.media = await Promise.all(mediaPromises);
-    // Optionnel : resauvegarder si besoin
-    // savedArticle = await this.articleRepository.save(savedArticle);
-  }
-
-  // Auto-modération IA (seulement si titre + contenu présents)
-  const hasContent = !!savedArticle.title?.trim() && !!savedArticle.content?.trim();
-
-  if (hasContent) {
-    try {
-      const moderation = await this.moderationService.moderate(
-        savedArticle.title,
-        savedArticle.content,
-      );
-
-      savedArticle.moderationResult   = moderation;
-      savedArticle.isAutoModerated    = true;
-      savedArticle.moderationScore    = moderation.score;
-
-      // Décision automatique (seuils ajustables selon tes besoins)
-      if (
-        moderation.score > 0.70 ||
-        moderation.categories?.includes('severe_toxicity') ||
-        moderation.categories?.includes('violence') ||
-        moderation.categories?.includes('hate_speech')
-      ) {
-        savedArticle.status = ArticleStatus.REJECTED;
-        savedArticle.rejectionReason = moderation.reason || 'Contenu jugé inapproprié par l\'auto-modération';
-      } else if (moderation.isFlagged || moderation.score > 0.35) {
-        savedArticle.status = ArticleStatus.PENDING;
-      } else {
-        // Safe → on publie directement (ou on garde le statut initial si voulu)
-        savedArticle.status = ArticleStatus.PUBLISHED;
-      }
-
-      savedArticle = await this.articleRepository.save(savedArticle);
-    } catch (err) {
-      console.error('Échec de l\'auto-modération IA :', err);
-      // Ne pas bloquer la création → on garde le statut initial
+    if (
+      createArticleDto.status &&
+      Object.values(ArticleStatus).includes(createArticleDto.status)
+    ) {
+      initialStatus = createArticleDto.status;
     }
+
+    const article = this.articleRepository.create({
+      ...articleData,
+      author: user,
+      category: { id: categoryId },
+      tags: tagIds?.map((id) => ({ id })) || [],
+      status: initialStatus,
+    });
+
+    // Sauvegarde initiale (nécessaire pour avoir un ID)
+    let savedArticle = await this.articleRepository.save(article);
+
+    // Gestion des médias (après avoir l'ID)
+    if (mediaDtos?.length) {
+      const mediaPromises = mediaDtos.map((dto) =>
+        this.mediaService.create({
+          ...dto,
+          articleId: savedArticle.id,
+          type: this.mediaService.getMediaTypeFromMimeType(dto.mimetype),
+        }),
+      );
+      savedArticle.media = await Promise.all(mediaPromises);
+      // Optionnel : resauvegarder si besoin
+      // savedArticle = await this.articleRepository.save(savedArticle);
+    }
+
+    // Auto-modération IA (seulement si titre + contenu présents)
+    const hasContent = !!savedArticle.title?.trim() && !!savedArticle.content?.trim();
+
+    if (hasContent) {
+      try {
+        const moderation = await this.moderationService.moderate(
+          savedArticle.title,
+          savedArticle.content,
+        );
+
+        savedArticle.moderationResult   = moderation;
+        savedArticle.isAutoModerated    = true;
+        savedArticle.moderationScore    = moderation.score;
+
+        // Décision automatique (seuils ajustables selon tes besoins)
+        if (
+          moderation.score > 0.70 ||
+          moderation.categories?.includes('severe_toxicity') ||
+          moderation.categories?.includes('violence') ||
+          moderation.categories?.includes('hate_speech')
+        ) {
+          savedArticle.status = ArticleStatus.REJECTED;
+          savedArticle.rejectionReason = moderation.reason || 'Contenu jugé inapproprié par l\'auto-modération';
+        } else if (moderation.isFlagged || moderation.score > 0.35) {
+          savedArticle.status = ArticleStatus.PENDING;
+        } else {
+          // Safe → on publie directement (ou on garde le statut initial si voulu)
+          savedArticle.status = ArticleStatus.PUBLISHED;
+        }
+
+        savedArticle = await this.articleRepository.save(savedArticle);
+      } catch (err) {
+        console.error('Échec de l\'auto-modération IA :', err);
+        // Ne pas bloquer la création → on garde le statut initial
+      }
+    }
+
+    // Créer la version 1 (sur la version finale après modération)
+    await this.createNewVersion(
+      savedArticle,
+      user,
+      'Création initiale de l’article',
+    );
+
+    // Embedding en tâche de fond
+    this.generateAndSaveEmbedding(savedArticle.id).catch(console.error);
+
+    // Retourner la version complète
+    return this.findOne(savedArticle.id);
   }
-
-  // Créer la version 1 (sur la version finale après modération)
-  await this.createNewVersion(
-    savedArticle,
-    user,
-    'Création initiale de l’article',
-  );
-
-  // Embedding en tâche de fond
-  this.generateAndSaveEmbedding(savedArticle.id).catch(console.error);
-
-  // Retourner la version complète
-  return this.findOne(savedArticle.id);
-}
 
   /**
    * Génère et sauvegarde le vecteur sémantique (appelée en tâche de fond)
@@ -282,44 +282,36 @@ ${article.content}
     }
   }
 
-<<<<<<< HEAD
   async findAll() {
-    return this.articleRepository.find({
-      relations: ['author', 'category', 'tags', 'media'],
-=======
-// DANS article.service.ts
-
-async findAll() {
-  try {
-    console.log('📡 ArticleService.findAll() appelé');
-    
-    const articles = await this.articleRepository.find({
-      relations: [
-        'author', 
-        'category', 
-        'tags', 
-        'media', 
-        'likes',      // ✅ Important: charger les likes
-        'bookmarks',   // ✅ Important: charger les bookmarks
-        'comments'
-      ],
->>>>>>> 065f0cd663c23de9b04251fffb79125b620ed24e
-      order: { createdAt: 'DESC' },
-    });
-    
-    console.log(`✅ ${articles.length} articles trouvés avec relations`);
-    
-    // ✅ Vérifier que les relations sont bien chargées
-    articles.forEach(article => {
-      console.log(`📊 Article ${article.id} - likes: ${article.likes?.length || 0}, bookmarks: ${article.bookmarks?.length || 0}`);
-    });
-    
-    return articles;
-  } catch (error) {
-    console.error('❌ Erreur dans articleService.findAll():', error);
-    throw error;
+    try {
+      console.log('📡 ArticleService.findAll() appelé');
+      
+      const articles = await this.articleRepository.find({
+        relations: [
+          'author', 
+          'category', 
+          'tags', 
+          'media', 
+          'likes',      // ✅ Important: charger les likes
+          'bookmarks',   // ✅ Important: charger les bookmarks
+          'comments'
+        ],
+        order: { createdAt: 'DESC' },
+      });
+      
+      console.log(`✅ ${articles.length} articles trouvés avec relations`);
+      
+      // ✅ Vérifier que les relations sont bien chargées
+      articles.forEach(article => {
+        console.log(`📊 Article ${article.id} - likes: ${article.likes?.length || 0}, bookmarks: ${article.bookmarks?.length || 0}`);
+      });
+      
+      return articles;
+    } catch (error) {
+      console.error('❌ Erreur dans articleService.findAll():', error);
+      throw error;
+    }
   }
-}
 
   // ────────────────────────────────────────────────
   // Méthode centrale de création de version
@@ -546,11 +538,15 @@ async findAll() {
   async getUserBookmarkedArticles(userId: number): Promise<Article[]> {
     return this.articleInteractionService.getUserBookmarkedArticles(userId);
   }
-
+ // Edit Bay BADER ******************************************************************************
   async getArticlesByUserId(userId: number): Promise<Article[]> {
     return this.articleRepository.find({
       where: { author: { id: userId } },
-      relations: ['author', 'category', 'tags', 'media'],
+      relations: ['author', 'category', 'tags', 'media',
+        'likes',      // ✅ AJOUTER
+      'bookmarks',  // ✅ AJOUTER
+      'comments'    // ✅ AJOUTER
+      ],
       order: { createdAt: 'DESC' },
     });
   }
