@@ -377,40 +377,47 @@ async getUserBookmarkedArticles(@CurrentPayload() payload: JwtPayloadType) {
   }
 }
   // Dans votre controller NestJS
-  @Get('user/:userId')
-  async getArticlesByUserId(@Param('userId', ParseIntPipe) userId: number) {
-    try {
-      const articles = await this.articleService.getArticlesByUserId(userId);
-
-      // Retourner directement le tableau d'articles
-      return articles.map((article) => ({
-        id: article.id,
-        title: article.title,
-        content: article.content,
-        description: article.content?.substring(0, 150) + '...' || '',
-        author: article.author
-          ? {
-              id: article.author.id,
-              name: `${article.author.firstName} ${article.author.lastName}`,
-              avatar: article.author.profileImage,
-            }
-          : null,
-        category: article.category
-          ? {
-              id: article.category.id,
-              name: article.category.name,
-            }
-          : null,
-        createdAt: article.createdAt,
-        status: article.status,
-        stats: {
-          likes: article.likes?.length || 0,
-          comments: article.comments?.length || 0,
-          views: article.viewsCount || 0,
-        },
-      }));
-    } catch (error) {
-      throw new BadRequestException(error.message);
-    }
+ // Edit Bay BADER ******************************************************************************
+@Get('user/:userId')
+async getArticlesByUserId(@Param('userId', ParseIntPipe) userId: number) {
+  try {
+    const articles = await this.articleService.getArticlesByUserId(userId);
+    
+    // Retourner les articles avec toutes les données nécessaires
+    return articles.map((article) => ({
+      id: article.id,
+      title: article.title,
+      content: article.content,
+      description: article.content?.substring(0, 150) + '...' || '',
+      author: article.author ? {
+        id: article.author.id,
+        name: `${article.author.firstName || ''} ${article.author.lastName || ''}`.trim() || 'Utilisateur',
+        firstName: article.author.firstName,
+        lastName: article.author.lastName,
+        avatar: article.author.profileImage,
+      } : null,
+      category: article.category ? {
+        id: article.category.id,
+        name: article.category.name,
+      } : null,
+      tags: article.tags?.map(tag => tag.name) || [],
+      createdAt: article.createdAt,
+      status: article.status,
+      // ✅ RETOURNER LES RELATIONS
+      likes: article.likes || [],           // Tableau complet des users qui ont liké
+      bookmarks: article.bookmarks || [],   // Tableau complet des users qui ont bookmarké
+      comments: article.comments || [],     // Tableau des commentaires
+      // ✅ STATISTIQUES CALCULÉES
+      stats: {
+        likes: article.likes?.length || 0,
+        comments: article.comments?.length || 0,
+        views: article.viewsCount || 0,
+      },
+      // ✅ ÉTATS POUR L'UTILISATEUR COURANT (sera calculé côté frontend)
+      viewsCount: article.viewsCount || 0,
+    }));
+  } catch (error) {
+    throw new BadRequestException(error.message);
   }
+}
 }
