@@ -75,17 +75,45 @@ async createAndNotify(
     };
   }
 
-  async findForUser(userId: number, limit = 30, unreadOnly = false) {
+  /**
+   * Récupère les notifications destinées à un utilisateur
+   * @param userId ID de l'utilisateur destinataire
+   * @param limit Nombre maximum de résultats (défaut 30)
+   * @param unreadOnly Si true, ne retourne que les non lues
+   * @param offset Pour la pagination (optionnel)
+   */
+  async findForUser(
+    userId: number,
+    limit: number = 30,
+    unreadOnly: boolean = false,
+    offset: number = 0,
+  ): Promise<Notification[]> {
     const qb = this.notificationRepository
       .createQueryBuilder('n')
+      // Jointure sender avec sélection minimale (optimisation)
       .leftJoinAndSelect('n.sender', 'sender')
+      .addSelect([
+        'sender.id',
+        'sender.firstName',
+        'sender.lastName',
+        'sender.profileImage',
+      ])
       .where('n.recipientId = :userId', { userId })
       .orderBy('n.createdAt', 'DESC')
+      .skip(offset)
       .take(limit);
 
-    if (unreadOnly) qb.andWhere('n.isRead = false');
+    // Filtre non lues si demandé
+    if (unreadOnly) {
+      qb.andWhere('n.isRead = :isRead', { isRead: false });
+    }
 
-    return qb.getMany();
+    // Charger les relations utiles sans tout charger
+    qb.leftJoinAndSelect('n.recipient', 'recipient', 'recipient.id = :userId', { userId });
+
+    const notifications = await qb.getMany();
+
+    return notifications;
   }
 
   async markAsRead(notificationId: number, userId: number) {
@@ -99,5 +127,28 @@ async createAndNotify(
     await this.notificationRepository.save(notif);
 
     return { success: true };
+  }
+
+async markAllAsRead(userId: number): Promise<{ success: boolean; count: number }> {
+    const unreadCount = await this.notificationRepository.count({
+      where: {
+        recipient: { id: userId },
+        isRead: false,
+      },
+    });
+
+    if (unreadCount === 0) {
+      return { success: true, count: 0 };
+    }
+
+    await this.notificationRepository
+      .createQueryBuilder()
+      .update(Notification)
+      .set({ isRead: true })
+      .where('recipientId = :userId', { userId })
+      .andWhere('isRead = false')
+      .execute();
+
+    return { success: true, count: unreadCount };
   }
 }

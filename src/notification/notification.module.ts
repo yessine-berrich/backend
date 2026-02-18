@@ -3,9 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Notification } from './entities/notification.entity';
 import { NotificationService } from './notification.service';
 import { NotificationGateway } from './notification.gateway';
+import { NotificationController } from './notification.controller';
+import { UsersModule } from 'src/users/users.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Notification])],
+  imports: [TypeOrmModule.forFeature([Notification]), UsersModule],
+  controllers: [NotificationController],
   providers: [NotificationService, NotificationGateway],
   exports: [NotificationService, NotificationGateway],
 })

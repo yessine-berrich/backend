@@ -1,10 +1,12 @@
-import { Controller, Get, Patch, Query, UseGuards } from '@nestjs/common';
+import { Controller, DefaultValuePipe, Get, ParseIntPipe, Patch, Query, UseGuards } from '@nestjs/common';
 import { CurrentPayload } from 'src/users/decorators/current-payload.decorator';
 import { AuthGuard } from 'src/users/guards/auth.guard';
 import type { JwtPayloadType } from 'utils/types';
 import { NotificationService } from './notification.service';
+import { Roles } from 'src/users/decorators/user-role.decorator';
+import { userRole } from 'utils/constants';
 
-@Controller('notification')
+@Controller('api/notifications')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
 
