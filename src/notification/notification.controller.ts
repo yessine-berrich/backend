@@ -9,28 +9,24 @@ import { userRole } from 'utils/constants';
 @Controller('api/notifications')
 export class NotificationController {
   constructor(private readonly notificationService: NotificationService) {}
-
-  // GET /api/notifications
-  @Get()
+@Get()
+  @Roles(userRole.ADMIN, userRole.EMPLOYEE)
   @UseGuards(AuthGuard)
   async getNotifications(
     @CurrentPayload() payload: JwtPayloadType,
-    @Query('limit') limit = 20,
-    @Query('unreadOnly') unreadOnly = false,
+    @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @Query('unreadOnly', new DefaultValuePipe(false)) unreadOnly: boolean,
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
   ) {
-    return this.notificationService.findForUser(
-      payload.sub,
-      +limit,
-      unreadOnly === 'true',
-    );
+    const offset = (page - 1) * limit;
+    return this.notificationService.findForUser(payload.sub, limit, unreadOnly, offset);
   }
 
-  // PATCH /api/notifications/mark-all-read (optionnel)
   @Patch('mark-all-read')
+  @Roles(userRole.ADMIN, userRole.EMPLOYEE)
   @UseGuards(AuthGuard)
   async markAllAsRead(@CurrentPayload() payload: JwtPayloadType) {
-    // À implémenter dans le service si besoin
-    await this.notificationService.markAllAsRead(payload.sub);
-    return { success: true };
+    const result = await this.notificationService.markAllAsRead(payload.sub);
+    return result; // { success: true, count: X }
   }
 }
