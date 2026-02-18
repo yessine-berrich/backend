@@ -44,7 +44,7 @@ import { ContentModerationModule } from './content-moderation/content-moderation
         User,
       ],
       autoLoadEntities: true,
-      synchronize: false, // dev only
+      synchronize: true, // dev only
     }),
     ArticleModule,
     CategoryModule,
