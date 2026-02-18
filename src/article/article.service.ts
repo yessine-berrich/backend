@@ -14,8 +14,10 @@ import { MediaService } from 'src/media/media.service';
 import { ArticleView } from './entities/article-view.entity';
 import { SemanticSearchService } from 'src/semantic-search/semantic-search.service';
 import { ArticleInteractionService } from './article-interaction.service';
-import { ArticleStatus } from 'utils/constants';
+import { ArticleStatus, NotificationType } from 'utils/constants';
 import { ContentModerationService } from 'src/content-moderation/content-moderation.service';
+import { NotificationService } from 'src/notification/notification.service';
+import { NotificationGateway } from 'src/notification/notification.gateway';
 
 @Injectable()
 export class ArticleService {
@@ -33,6 +35,8 @@ export class ArticleService {
     private readonly semanticSearchService: SemanticSearchService,
     private readonly articleInteractionService: ArticleInteractionService,
     private readonly moderationService: ContentModerationService,
+    private readonly notificationService: NotificationService,
+    private readonly notificationGateway: NotificationGateway,
 
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -41,102 +45,128 @@ export class ArticleService {
   // ────────────────────────────────────────────────
   // CREATE ─ avec première version
   // ────────────────────────────────────────────────
-  async create(
-    createArticleDto: CreateArticleDto,
-    user: User,
-  ): Promise<Article> {
-    const {
-      tagIds,
-      categoryId,
-      media: mediaDtos,
-      ...articleData
-    } = createArticleDto;
+async create(
+  createArticleDto: CreateArticleDto,
+  user: User,
+): Promise<Article> {
+  const {
+    tagIds,
+    categoryId,
+    media: mediaDtos,
+    ...articleData
+  } = createArticleDto;
 
-    // Déterminer le statut initial selon le rôle (exemple simple)
-    let initialStatus = ArticleStatus.DRAFT;
+  let initialStatus = ArticleStatus.DRAFT;
 
-    if (
-      createArticleDto.status &&
-      Object.values(ArticleStatus).includes(createArticleDto.status)
-    ) {
-      initialStatus = createArticleDto.status;
-    }
-
-    const article = this.articleRepository.create({
-      ...articleData,
-      author: user,
-      category: { id: categoryId },
-      tags: tagIds?.map((id) => ({ id })) || [],
-      status: initialStatus,
-    });
-
-    // Sauvegarde initiale (nécessaire pour avoir un ID)
-    let savedArticle = await this.articleRepository.save(article);
-
-    // Gestion des médias (après avoir l'ID)
-    if (mediaDtos?.length) {
-      const mediaPromises = mediaDtos.map((dto) =>
-        this.mediaService.create({
-          ...dto,
-          articleId: savedArticle.id,
-          type: this.mediaService.getMediaTypeFromMimeType(dto.mimetype),
-        }),
-      );
-      savedArticle.media = await Promise.all(mediaPromises);
-      // Optionnel : resauvegarder si besoin
-      // savedArticle = await this.articleRepository.save(savedArticle);
-    }
-
-    // Auto-modération IA (seulement si titre + contenu présents)
-    const hasContent = !!savedArticle.title?.trim() && !!savedArticle.content?.trim();
-
-    if (hasContent) {
-      try {
-        const moderation = await this.moderationService.moderate(
-          savedArticle.title,
-          savedArticle.content,
-        );
-
-        savedArticle.moderationResult   = moderation;
-        savedArticle.isAutoModerated    = true;
-        savedArticle.moderationScore    = moderation.score;
-
-        // Décision automatique (seuils ajustables selon tes besoins)
-        if (
-          moderation.score > 0.70 ||
-          moderation.categories?.includes('severe_toxicity') ||
-          moderation.categories?.includes('violence') ||
-          moderation.categories?.includes('hate_speech')
-        ) {
-          savedArticle.status = ArticleStatus.REJECTED;
-          savedArticle.rejectionReason = moderation.reason || 'Contenu jugé inapproprié par l\'auto-modération';
-        } else if (moderation.isFlagged || moderation.score > 0.35) {
-          savedArticle.status = ArticleStatus.PENDING;
-        } else {
-          // Safe → on publie directement (ou on garde le statut initial si voulu)
-          savedArticle.status = ArticleStatus.PUBLISHED;
-        }
-
-        savedArticle = await this.articleRepository.save(savedArticle);
-      } catch (err) {
-        console.error('Échec de l\'auto-modération IA :', err);
-        // Ne pas bloquer la création → on garde le statut initial
-      }
-    }
-
-    // Créer la version 1 (sur la version finale après modération)
-    await this.createNewVersion(
-      savedArticle,
-      user,
-      'Création initiale de l’article',
-    );
-
-    // Embedding en tâche de fond
-    this.generateAndSaveEmbedding(savedArticle.id).catch(console.error);
-
-    // Retourner la version complète
-    return this.findOne(savedArticle.id);
+  if (
+    createArticleDto.status &&
+    Object.values(ArticleStatus).includes(createArticleDto.status)
+  ) {
+    initialStatus = createArticleDto.status;
   }
+
+  const article = this.articleRepository.create({
+    ...articleData,
+    author: user,
+    category: { id: categoryId },
+    tags: tagIds?.map((id) => ({ id })) || [],
+    status: initialStatus,
+  });
+
+  let savedArticle = await this.articleRepository.save(article);
+
+  // Gestion médias
+  if (mediaDtos?.length) {
+    const mediaPromises = mediaDtos.map((dto) =>
+      this.mediaService.create({
+        ...dto,
+        articleId: savedArticle.id,
+        type: this.mediaService.getMediaTypeFromMimeType(dto.mimetype),
+      }),
+    );
+    savedArticle.media = await Promise.all(mediaPromises);
+  }
+
+  // Auto-modération IA
+  const hasContent = !!savedArticle.title?.trim() && !!savedArticle.content?.trim();
+
+  if (hasContent) {
+    try {
+      const moderation = await this.moderationService.moderate(
+        savedArticle.title,
+        savedArticle.content,
+      );
+
+      savedArticle.moderationResult = moderation;
+      savedArticle.isAutoModerated = true;
+      savedArticle.moderationScore = moderation.score;
+
+      let newStatus = savedArticle.status;
+      let notificationMessage = "";
+      let notificationType: NotificationType = NotificationType.SYSTEM_INFO; // nouveau type à ajouter
+
+      // Décision automatique
+      if (
+        moderation.score > 0.70 ||
+        moderation.categories?.includes('severe_toxicity') ||
+        moderation.categories?.includes('violence') ||
+        moderation.categories?.includes('hate_speech')
+      ) {
+        newStatus = ArticleStatus.REJECTED;
+        savedArticle.rejectionReason =
+          moderation.reason || "Contenu jugé inapproprié par l'auto-modération";
+        notificationMessage =
+          `Votre article "${savedArticle.title}" a été rejeté automatiquement : ${savedArticle.rejectionReason}`;
+        notificationType = NotificationType.ARTICLE_REJECTED;
+      } else if (moderation.isFlagged || moderation.score > 0.35) {
+        newStatus = ArticleStatus.PENDING;
+        notificationMessage =
+          `Votre article "${savedArticle.title}" est en attente de validation (modération automatique a détecté un risque potentiel)`;
+        notificationType = NotificationType.ARTICLE_PENDING_MODERATION;
+      } else {
+        newStatus = ArticleStatus.PUBLISHED;
+        notificationMessage =
+          `Votre article "${savedArticle.title}" a été publié automatiquement (approuvé par la modération IA)`;
+        notificationType = NotificationType.ARTICLE_PUBLISHED;
+      }
+
+      savedArticle.status = newStatus;
+      savedArticle = await this.articleRepository.save(savedArticle);
+
+      // Envoyer notification au créateur (sender = null = système)
+      await this.notificationService.createAndNotify(
+        notificationType,
+        user.id,                    // destinataire = auteur de l'article
+        null,                       // sender = système
+        notificationMessage,
+        {
+          articleId: savedArticle.id,
+          moderationScore: moderation.score,
+          moderationCategories: moderation.categories,
+        },
+      );
+
+    } catch (err) {
+      console.error("Échec auto-modération IA :", err);
+      // Notification d'erreur technique au créateur
+      await this.notificationService.createAndNotify(
+        NotificationType.SYSTEM_ERROR,
+        user.id,
+        null,
+        "La modération automatique a échoué. Votre article est en brouillon. Veuillez réessayer ou contacter le support.",
+        { articleId: savedArticle.id },
+      );
+    }
+  }
+
+  // Créer la version 1
+  await this.createNewVersion(savedArticle, user, "Création initiale de l’article");
+
+  // Embedding en tâche de fond
+  this.generateAndSaveEmbedding(savedArticle.id).catch(console.error);
+
+  return this.findOne(savedArticle.id);
+}
 
   /**
    * Génère et sauvegarde le vecteur sémantique (appelée en tâche de fond)

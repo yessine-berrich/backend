@@ -15,4 +15,9 @@ export enum NotificationType {
   MENTION = 'mention',
   REPLY = 'reply',
   NEW_COMMENT = 'new_comment',
+  SYSTEM_ERROR = 'system_error',
+  ARTICLE_PUBLISHED = 'article_published',
+  ARTICLE_PENDING_MODERATION = 'article_pending_moderation',
+  ARTICLE_REJECTED = 'article_rejected',
+  SYSTEM_INFO = 'system_info',
 }
