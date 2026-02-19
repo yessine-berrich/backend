@@ -12,7 +12,8 @@ import { LoginDto } from './dto/login.dto';
 import { AuthService } from './auth.service';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ILike, In } from 'typeorm';
-
+import { ChangePasswordDto } from './dto/change-password.dto';
+import * as bcrypt from 'bcryptjs';
 @Injectable()
 export class UsersService {
   constructor(
@@ -188,5 +189,26 @@ export class UsersService {
       select: ['id', 'firstName', 'lastName'],
       take: 5,
     });
+  }
+  //crate bay bader *****************************************************************************************
+
+    async changePassword(userId: number, dto: ChangePasswordDto): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new NotFoundException('Utilisateur non trouvé');
+    }
+
+    // Vérifier l'ancien mot de passe
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isMatch) {
+      throw new BadRequestException('Mot de passe actuel incorrect');
+    }
+
+    // Hacher le nouveau mot de passe
+    const hashedPassword = await bcrypt.hash(dto.newPassword, 10);
+    user.password = hashedPassword;
+    await this.userRepository.save(user);
+
+    return { message: 'Mot de passe modifié avec succès' };
   }
 }

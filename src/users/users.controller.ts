@@ -18,6 +18,7 @@ import {
   NotFoundException,
   Res,
   Query,
+  ForbiddenException,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -35,6 +36,7 @@ import { extname } from 'path/win32';
 import { diskStorage } from 'multer';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { join } from 'path';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @Controller('api/users')
 export class UsersController {
@@ -178,4 +180,26 @@ export class UsersController {
   async search(@Query('q') q: string) {
     return this.usersService.searchUsers(q);
   }
+
+  //crate bay bader *****************************************************************************************
+
+  @Post(':id/change-password')
+  @UseGuards(AuthGuard)
+  async changePassword(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() changePasswordDto: ChangePasswordDto,
+    @CurrentPayload() payload: JwtPayloadType,
+  ) {
+    // Vérifier les droits : soit l'utilisateur lui-même, soit un admin
+    const isAdmin = payload.role === userRole.ADMIN;
+    if (payload.sub !== id && !isAdmin) {
+      throw new ForbiddenException('Vous ne pouvez pas modifier le mot de passe d\'un autre utilisateur');
+    }
+
+    return this.usersService.changePassword(id, changePasswordDto);
+  }
 }
+
+
+
+

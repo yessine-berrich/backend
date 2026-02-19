@@ -445,6 +445,8 @@ ${article.content}
         'comments',
         'comments.author',
         'versions',
+        'likes',
+        'bookmarks', 
       ],
     });
 

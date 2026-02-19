@@ -113,11 +113,78 @@ export class ArticleController {
     });
   }
 
-  @Get(':id')
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.articleService.findOne(id);
-  }
+// Dans article.controller.ts
 
+// Dans article.controller.ts
+
+@Get(':id')
+async findOne(
+  @Param('id', ParseIntPipe) id: number,
+  @Req() request: Request,
+) {
+  let userId: number | undefined = undefined;
+  
+  try {
+    const authHeader = request.headers.authorization;
+    if (authHeader) {
+      const token = authHeader.split(' ')[1];
+      const payload = this.jwtService.verify(token);
+      userId = payload.sub;
+    }
+  } catch (err) {
+    // Token invalide ou expiré - on ignore
+  }
+  
+  const article = await this.articleService.findOne(id);
+  
+  // Calculer isLiked et isBookmarked à partir des tableaux chargés
+  const isLiked = userId ? article.likes?.some(like => like.id === userId) : false;
+  const isBookmarked = userId ? article.bookmarks?.some(bookmark => bookmark.id === userId) : false;
+  
+  // Retourner l'article formaté avec toutes les informations
+  return {
+    id: article.id,
+    title: article.title,
+    content: article.content,
+    description: article.content?.substring(0, 150) + '...' || '',
+    status: article.status,
+    viewsCount: article.viewsCount || 0,
+    createdAt: article.createdAt,
+    updatedAt: article.updatedAt,
+    
+    author: article.author ? {
+      id: article.author.id,
+      name: `${article.author.firstName || ''} ${article.author.lastName || ''}`.trim() || 'Utilisateur',
+      initials: ((article.author.firstName?.charAt(0) || '') + (article.author.lastName?.charAt(0) || '')).toUpperCase() || 'U',
+      department: article.author.role || 'Membre',
+      avatar: article.author.profileImage,
+    } : null,
+    
+    category: article.category ? {
+      id: article.category.id,
+      name: article.category.name,
+      slug: article.category.name?.toLowerCase().replace(/\s+/g, '-') || '',
+    } : null,
+    
+    tags: article.tags?.map(tag => tag?.name || '').filter(Boolean) || [],
+    
+    stats: {
+      likes: article.likes?.length || 0,
+      comments: article.comments?.length || 0,
+      views: article.viewsCount || 0,
+    },
+    
+    // ✅ Ces champs sont maintenant calculés correctement
+    isLiked: isLiked,
+    isBookmarked: isBookmarked,
+    isFeatured: false,
+    
+    // Optionnel: inclure les tableaux complets si nécessaire
+    likes: article.likes,
+    bookmarks: article.bookmarks,
+    comments: article.comments,
+  };
+}
   // ─── UPDATE ────────────────────────────────────────
   @Patch(':id')
   @Roles(userRole.ADMIN, userRole.EMPLOYEE)
