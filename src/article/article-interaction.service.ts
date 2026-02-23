@@ -4,6 +4,8 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { User } from 'src/users/entities/user.entity';
 import { Article } from './entities/article.entity';
+import { NotificationType } from 'utils/constants';
+import { NotificationService } from 'src/notification/notification.service';
 
 @Injectable()
 export class ArticleInteractionService {
@@ -12,7 +14,8 @@ export class ArticleInteractionService {
     private readonly articleRepository: Repository<Article>,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    
+
+    private readonly notificationService: NotificationService,
   ) {}
 
   async toggleLike(articleId: number, userId: number): Promise<Article> {
@@ -39,6 +42,18 @@ export class ArticleInteractionService {
       article.likes = article.likes.filter((like) => like.id !== user.id);
     } else {
       article.likes = [...article.likes, user];
+
+      if (article.author.id !== userId) {
+        await this.notificationService.createAndNotify(
+          NotificationType.ARTICLE_LIKED,
+          article.author.id,
+          user,
+          `${user.firstName} a aimé votre article "${article.title}"`,
+          {
+            articleId: article.id,
+          },
+        );
+      }
     }
 
     const savedArticle = await this.articleRepository.save(article);
@@ -77,6 +92,18 @@ export class ArticleInteractionService {
       );
     } else {
       article.bookmarks = [...article.bookmarks, user];
+
+      if (article.author.id !== userId) {
+        await this.notificationService.createAndNotify(
+          NotificationType.ARTICLE_BOOKMARKED,
+          article.author.id, // destinataire = auteur
+          user, // expéditeur
+          `${user.firstName} a mis votre article "${article.title}" en favori`,
+          {
+            articleId: article.id,
+          },
+        );
+      }
     }
 
     const savedArticle = await this.articleRepository.save(article);

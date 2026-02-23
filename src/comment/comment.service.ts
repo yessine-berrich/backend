@@ -24,7 +24,6 @@ export class CommentService {
     private readonly notificationService: NotificationService,
     private readonly notificationGateway: NotificationGateway,
     private readonly articleService: ArticleService,
-
   ) {}
 
   async create(
@@ -37,7 +36,9 @@ export class CommentService {
     userId: number,
   ): Promise<Comment> {
     // Récupérer l'article (pour connaître son auteur)
-    const article = await this.articleService.findOne(createCommentDto.articleId);
+    const article = await this.articleService.findOne(
+      createCommentDto.articleId,
+    );
 
     if (!article) {
       throw new NotFoundException('Article non trouvé');
@@ -214,11 +215,10 @@ export class CommentService {
     };
   }
 
-  // MODIFIE toggleLike pour retourner le bon format
   async toggleLike(commentId: number, userId: number) {
     const comment = await this.commentRepository.findOne({
       where: { id: commentId },
-      relations: ['likes'],
+      relations: ['likes', 'author', 'article'],
     });
 
     if (!comment) {
@@ -236,6 +236,18 @@ export class CommentService {
       comment.likes = comment.likes.filter((like) => like.id !== user.id);
     } else {
       comment.likes = [...comment.likes, user];
+      if (comment.author.id !== userId) {
+        await this.notificationService.createAndNotify(
+          NotificationType.COMMENT_LIKED,
+          comment.author.id,
+          user,
+          `${user.firstName} a aimé votre commentaire`,
+          {
+            commentId: comment.id,
+            articleId: comment.article?.id,
+          },
+        );
+      }
     }
 
     await this.commentRepository.save(comment);

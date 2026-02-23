@@ -20,4 +20,7 @@ export enum NotificationType {
   ARTICLE_PENDING_MODERATION = 'article_pending_moderation',
   ARTICLE_REJECTED = 'article_rejected',
   SYSTEM_INFO = 'system_info',
+  COMMENT_LIKED = 'comment_liked',
+  ARTICLE_LIKED = 'article_liked',
+  ARTICLE_BOOKMARKED = 'article_bookmarked',
 }
