@@ -14,6 +14,7 @@ import {
   ParseFloatPipe,
   DefaultValuePipe,
   Req,
+  Res,
 } from '@nestjs/common';
 import { CreateArticleDto } from './dto/create-article.dto';
 import { UpdateArticleDto } from './dto/update-article.dto';
@@ -26,7 +27,7 @@ import type { JwtPayloadType } from 'utils/types';
 import { User } from 'src/users/entities/user.entity';
 import { SemanticSearchService } from 'src/semantic-search/semantic-search.service';
 import { UsersService } from 'src/users/users.service';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
 import { JwtService } from '@nestjs/jwt'; // 👈 AJOUTER CET IMPORT
 
 
@@ -233,11 +234,48 @@ async findOne(
     };
   }
 
-  @Post(':id/view')
-  async handleView(@Param('id') id: string) {
-    return this.articleService.incrementView(+id);
-  }
+@Post(':id/view')
+async incrementView(
+  @Param('id') id: string,
+  @Req() req: Request,
+  @Res() res: Response,
+) {
+  try {
+    const articleId = parseInt(id);
+    
+    // Essayer d'extraire userId du token s'il existe
+    let userId: number | undefined;
+    const authHeader = req.headers.authorization;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      try {
+        const payload = this.jwtService.verify(token);
+        userId = payload.sub;
+      } catch (e) {
+        console.log('Token invalide ou expiré');
+      }
+    }
 
+    const ip = req.ip;
+
+    await this.articleService.incrementView(articleId, userId, ip);
+    
+    // Récupérer l'article mis à jour
+    const article = await this.articleService.findOne(articleId);
+    
+    return res.status(200).json({
+      views: article.viewsCount || 0,
+      message: 'Vue enregistrée'
+    });
+  } catch (error) {
+    console.error('❌ Erreur incrementView:', error);
+    return res.status(500).json({ 
+      message: 'Erreur lors de l\'incrémentation des vues',
+      views: 0
+    });
+  }
+}
   // ───────────────────────────────────────────────
   //              RECHERCHE SÉMANTIQUE
   // ───────────────────────────────────────────────
