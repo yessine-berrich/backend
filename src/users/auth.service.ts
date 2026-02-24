@@ -11,7 +11,8 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { LoginDto } from './dto/login.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtPayloadType } from 'utils/types';
-import { userRole } from 'utils/constants';
+import { NotificationType, userRole } from 'utils/constants';
+import { NotificationService } from 'src/notification/notification.service';
 
 @Injectable()
 export class AuthService {
@@ -20,6 +21,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly mailService: MailService,
     private readonly config: ConfigService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   /**
@@ -284,6 +286,19 @@ export class AuthService {
 
     // Optionnel : logger l'action ou envoyer une notification
     // await this.notificationService.createAdminActionLog(adminId, targetUserId, `Changement de rôle → ${newRole}`);
+    const admin = await this.userRepository.findOne({
+      where: { id: adminId },
+    });
+    await this.notificationService.createAndNotify(
+      NotificationType.USER_ROLE_CHANGED,
+      targetUserId,
+      admin,
+      `Votre rôle a été changé de ${user.role} à ${newRole}`,
+      {
+        oldRole: user.role,
+        newRole: newRole,
+      },
+    );
 
     return {
       message: `Le rôle de l'utilisateur a été modifié avec succès : ${newRole}`,

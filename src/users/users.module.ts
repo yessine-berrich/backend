@@ -7,6 +7,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { AuthService } from './auth.service';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MailModule } from 'src/mail/mail.module';
+import { NotificationModule } from 'src/notification/notification.module';
 @Module({
   imports: [
     MailModule,
@@ -20,6 +21,7 @@ import { MailModule } from 'src/mail/mail.module';
       }),
       inject: [ConfigService],
     }),
+    NotificationModule,
   ],
   providers: [UsersService, AuthService],
   controllers: [UsersController],

@@ -21,5 +21,6 @@ import { ArticleModule } from 'src/article/article.module';
   ],
   controllers: [CommentController],
   providers: [CommentService],
+  exports: [CommentService]
 })
 export class CommentModule {}
