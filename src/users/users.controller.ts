@@ -19,6 +19,7 @@ import {
   Res,
   Query,
   ForbiddenException,
+  Req,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -58,6 +59,31 @@ export class UsersController {
   @UseGuards(AuthGuard)
   getCurrentUser(@CurrentPayload() payload: JwtPayloadType) {
     return this.usersService.getCurrentUser(payload.sub);
+  }
+
+  @Post('admin/:id/activate')
+  @Roles(userRole.ADMIN, userRole.EMPLOYEE)
+  @UseGuards(AuthGuard)           // ← à implémenter
+  async activate(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.activateUser(id);
+  }
+
+  @Post('admin/:id/deactivate')
+  @Roles(userRole.ADMIN, userRole.EMPLOYEE)
+  @UseGuards(AuthGuard)
+  async deactivate(@Param('id', ParseIntPipe) id: number) {
+    return this.usersService.deactivateUser(id);
+  }
+
+  @Post('admin/users/:id/role')
+  @Roles(userRole.ADMIN, userRole.EMPLOYEE)
+  @UseGuards(AuthGuard)
+  async updateRole(
+    @Param('id', ParseIntPipe) userId: number,
+    @Body('role') newRole: userRole,
+    @CurrentPayload() payload: JwtPayloadType, // l'utilisateur connecté
+  ) {
+    return this.usersService.changeUserRole(payload.sub, userId, newRole);
   }
 
   @Get()
@@ -169,7 +195,7 @@ export class UsersController {
     });
   }
 
-  @Delete(':id')
+  @Delete('admin/:id')
   @UseGuards(AuthRolesGuard)
   @Roles(userRole.ADMIN) // Seul l'ADMIN peut supprimer un compte
   async remove(@Param('id', ParseIntPipe) id: number) {
@@ -180,8 +206,6 @@ export class UsersController {
   async search(@Query('q') q: string) {
     return this.usersService.searchUsers(q);
   }
-
-  //crate bay bader *****************************************************************************************
 
   @Post(':id/change-password')
   @UseGuards(AuthGuard)

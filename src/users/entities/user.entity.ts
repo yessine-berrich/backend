@@ -68,6 +68,10 @@ export class User {
   @Column({ default: false })
   isActive: boolean;
 
+  // Nouveau champ : validation admin
+  @Column({ default: false })
+  status: boolean;           // true = compte validé par admin, false = en attente / bloqué
+
   @Column({ nullable: true })
   verificationToken: string;
 

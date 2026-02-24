@@ -14,6 +14,7 @@ import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ILike, In } from 'typeorm';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as bcrypt from 'bcryptjs';
+import { userRole } from 'utils/constants';
 @Injectable()
 export class UsersService {
   constructor(
@@ -34,6 +35,18 @@ export class UsersService {
 
   async login(loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  async activateUser(id: number) {
+    return this.authService.activateUser(id);
+  }
+
+  async deactivateUser(id: number) {
+    return this.authService.deactivateUser(id);
+  }
+
+  async changeUserRole(adminId: number, targetUserId: number, newRole: userRole) {
+    return this.authService.changeUserRole(adminId, targetUserId, newRole);
   }
 
   async getAllUsers(): Promise<User[]> {
