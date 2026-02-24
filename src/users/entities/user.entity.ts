@@ -68,15 +68,33 @@ export class User {
   @Column({ default: false })
   isActive: boolean;
 
-  // Nouveau champ : validation admin
   @Column({ default: false })
-  status: boolean;           // true = compte validé par admin, false = en attente / bloqué
+  status: boolean; // true = compte validé par admin, false = en attente / bloqué
 
   @Column({ nullable: true })
   verificationToken: string;
 
   @Column({ nullable: true })
   resetPasswordToken: string;
+
+  @Column({ default: true })
+  emailNotificationsEnabled: boolean; // global toggle email
+
+  @Column({ default: true })
+  emailOnComment: boolean; // Commentaires sur mes articles
+
+  @Column({ default: false })
+  emailOnLike: boolean; // Likes sur mes articles
+
+  @Column({ default: true })
+  emailOnNewFollower: boolean; // Nouveaux abonnés
+
+  @Column({ default: false })
+  emailNewsletter: boolean; // Newsletter / Actualités plateforme
+
+  // Préférences notifications PUSH (in-app + navigateur/app mobile)
+  @Column({ default: true })
+  pushNotificationsEnabled: boolean;
 
   @OneToMany(() => Article, (article) => article.author)
   articles: Article[];

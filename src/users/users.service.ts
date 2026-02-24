@@ -15,6 +15,7 @@ import { ILike, In } from 'typeorm';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import * as bcrypt from 'bcryptjs';
 import { userRole } from 'utils/constants';
+import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 @Injectable()
 export class UsersService {
   constructor(
@@ -223,5 +224,10 @@ export class UsersService {
     await this.userRepository.save(user);
 
     return { message: 'Mot de passe modifié avec succès' };
+  }
+
+  async updateNotificationPreferences(userId: number, dto: UpdateNotificationPreferencesDto) {
+    await this.userRepository.update(userId, dto);
+    return { message: 'Préférences de notifications mises à jour' };
   }
 }

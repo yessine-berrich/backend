@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nouvelle personne vous suit !</title>
+  <style> /* style identique */ </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header" style="background:#9f7aea;">
+      <h1 style="margin:0; font-size:24px;">+1 abonné !</h1>
+    </div>
+
+    <div class="content">
+      <p>Bonjour,</p>
+      <p><strong><%= followerName %></strong> vient de s’abonner à votre profil.</p>
+
+      <p>C’est le moment parfait pour publier quelque chose de nouveau !</p>
+
+      <a href="<%= profileUrl %>" class="button" style="background:#9f7aea;">
+        Voir mon profil →
+      </a>
+
+      <p>Votre communauté grandit, continuez comme ça ! 🚀</p>
+    </div>
+
+    <div class="footer">
+      <!-- même footer -->
+    </div>
+  </div>
+</body>
+</html>

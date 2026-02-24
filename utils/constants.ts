@@ -23,5 +23,10 @@ export enum NotificationType {
   COMMENT_LIKED = 'comment_liked',
   ARTICLE_LIKED = 'article_liked',
   ARTICLE_BOOKMARKED = 'article_bookmarked',
-  USER_ROLE_CHANGED = 'user_role_changed'
+  USER_ROLE_CHANGED = 'user_role_changed',
+  COMMENT_ON_ARTICLE = 'comment_on_article',
+  LIKE_ON_ARTICLE = 'like_on_article',
+  NEW_FOLLOWER = 'new_follower',
+  NEWSLETTER = 'newsletter',
+  PLATFORM_UPDATE = 'platform_update'
 }

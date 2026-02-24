@@ -46,7 +46,7 @@ export class ArticleVersion {
 
   @Column({
     type: 'enum',
-    enum: ['draft', 'pending', 'published'],
+    enum: ['draft', 'pending', 'published', 'rejected'],
     default: 'draft',
   })
   status: string;

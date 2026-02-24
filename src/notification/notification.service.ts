@@ -5,6 +5,7 @@ import { Notification } from './entities/notification.entity';
 import { User } from '../users/entities/user.entity';
 import { NotificationType } from 'utils/constants';
 import { NotificationGateway } from './notification.gateway';
+import { MailService } from 'src/mail/mail.service';
 
 @Injectable()
 export class NotificationService {
@@ -13,43 +14,63 @@ export class NotificationService {
     private notificationRepository: Repository<Notification>,
 
     private notificationGateway: NotificationGateway,
+    private readonly mailService: MailService,
   ) {}
 
-async createAndNotify(
-  type: NotificationType,
-  recipient: User | number,
-  sender: User | null,
-  message?: string,
-  data?: Record<string, any>,
-): Promise<Notification | null> {
-  let recipientUser: User | null = null;
+  async createAndNotify(
+    type: NotificationType,
+    recipient: User | number,
+    sender: User | null,
+    message?: string,
+    data?: Record<string, any>,
+  ): Promise<Notification | null> {
+    let recipientUser: User | null = null;
 
-  if (typeof recipient === 'number') {
-    recipientUser = await this.getUserById(recipient);
-  } else {
-    recipientUser = recipient;
+    if (typeof recipient === 'number') {
+      recipientUser = await this.getUserById(recipient);
+    } else {
+      recipientUser = recipient;
+    }
+
+    if (!recipientUser) {
+      console.warn('Destinataire introuvable');
+      return null;
+    }
+
+    // ─── Vérification push (in-app via websocket) ───
+    const sendPush = await this.shouldSendPush(recipientUser.id);
+
+    // Créer la notification en base (toujours, car elle peut être vue dans l'interface)
+    const notification = this.notificationRepository.create({
+      type,
+      recipient: recipientUser,
+      sender: sender ?? undefined,
+      message,
+      data,
+      isRead: false,
+    });
+
+    const saved = await this.notificationRepository.save(notification);
+
+    // ─── Envoi push/websocket SI autorisé ───
+    if (sendPush) {
+      const payload = this.formatForFrontend(saved);
+      this.notificationGateway.sendToUser(recipientUser.id, payload);
+    }
+
+    // ─── Envoi email SI autorisé ───
+    const sendEmail = await this.shouldSendEmail(recipientUser.id, type);
+    if (sendEmail && this.mailService) { // suppose que tu injectes MailService
+      await this.mailService.sendNotificationEmail(
+        recipientUser.email,
+        type,
+        message,
+        data,
+        sender,
+      );
+    }
+    return saved;
   }
-
-  if (!recipientUser) {
-    console.warn('Destinataire introuvable');
-    return null;
-  }
-
-  const notification = new Notification();
-  notification.type = type;
-  notification.recipient = recipientUser;
-  notification.sender = sender ?? undefined;          // ← correction clé
-  notification.message = message;
-  notification.data = data;
-  notification.isRead = false;
-
-  const saved = await this.notificationRepository.save(notification);
-
-  const payload = this.formatForFrontend(saved);
-  this.notificationGateway.sendToUser(recipientUser.id, payload);
-
-  return saved;
-}
 
   private async getUserById(id: number): Promise<User | null> {
     return this.notificationRepository.manager
@@ -129,7 +150,7 @@ async createAndNotify(
     return { success: true };
   }
 
-async markAllAsRead(userId: number): Promise<{ success: boolean; count: number }> {
+  async markAllAsRead(userId: number): Promise<{ success: boolean; count: number }> {
     const unreadCount = await this.notificationRepository.count({
       where: {
         recipient: { id: userId },
@@ -150,5 +171,56 @@ async markAllAsRead(userId: number): Promise<{ success: boolean; count: number }
       .execute();
 
     return { success: true, count: unreadCount };
+  }
+
+  /**
+   * Vérifie si l'utilisateur souhaite recevoir cette notification par email
+   */
+  async shouldSendEmail(recipientId: number, type: NotificationType): Promise<boolean> {
+    const user = await this.notificationRepository.manager
+      .getRepository(User)
+      .findOne({
+        where: { id: recipientId },
+        select: [
+          'emailNotificationsEnabled',
+          'emailOnComment',
+          'emailOnLike',
+          'emailOnNewFollower',
+          'emailNewsletter',
+        ],
+      });
+
+    if (!user || !user.emailNotificationsEnabled) {
+      return false;
+    }
+
+    switch (type) {
+      case NotificationType.COMMENT_ON_ARTICLE:
+        return user.emailOnComment;
+      case NotificationType.LIKE_ON_ARTICLE:
+        return user.emailOnLike;
+      case NotificationType.NEW_FOLLOWER:
+        return user.emailOnNewFollower;
+      case NotificationType.NEWSLETTER:
+        return user.emailNewsletter;
+      // Ajoute d'autres types selon tes NotificationType
+      default:
+        return true; // par défaut on envoie si global est activé
+    }
+  }
+
+  /**
+   * Vérifie si on doit envoyer une notification push/in-app
+   * (plus simple car souvent moins granulaire)
+   */
+  async shouldSendPush(recipientId: number): Promise<boolean> {
+    const user = await this.notificationRepository.manager
+      .getRepository(User)
+      .findOne({
+        where: { id: recipientId },
+        select: ['pushNotificationsEnabled'],
+      });
+
+    return !!user?.pushNotificationsEnabled;
   }
 }

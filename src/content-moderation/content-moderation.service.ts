@@ -5,7 +5,7 @@ import { Ollama } from 'ollama'; // ou ton client existant
 @Injectable()
 export class ContentModerationService {
   private ollama = new Ollama({ host: 'http://localhost:11434' });
-  private model = 'llama-guard3:8b'; // ou llama3.2:3b (plus rapide) / llama-guard3:8b
+  private model = 'llama3.2:3b'; // llama3.2:3b (plus rapide) / llama-guard3:8b
 
   private readonly MODERATION_SCHEMA = {
     type: 'object',

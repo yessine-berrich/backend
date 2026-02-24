@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title><%= title || "Actualités de la plateforme" %></title>
+  <style> /* style identique */ </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header" style="background:#4299e1;">
+      <h1 style="margin:0; font-size:24px;"><%= title || "Actualités" %></h1>
+    </div>
+
+    <div class="content">
+      <p>Bonjour,</p>
+
+      <h3 style="margin:24px 0 12px;"><%= title || "Mise à jour importante" %></h3>
+
+      <p><%= contentPreview || message || "..." %></p>
+
+      <% if (link && link !== '#') { %>
+        <a href="<%= link %>" class="button" style="background:#4299e1;">
+          En savoir plus →
+        </a>
+      <% } %>
+
+      <p style="margin-top:32px;">Merci de faire partie de notre communauté !</p>
+    </div>
+
+    <div class="footer">
+      <p>Vous recevez cette newsletter car vous l’avez activée dans vos préférences.</p>
+      <!-- même lien gestion préférences + désabonnement -->
+    </div>
+  </div>
+</body>
+</html>

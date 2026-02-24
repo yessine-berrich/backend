@@ -38,6 +38,7 @@ import { diskStorage } from 'multer';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { join } from 'path';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { UpdateNotificationPreferencesDto } from './dto/update-notification-preferences.dto';
 
 @Controller('api/users')
 export class UsersController {
@@ -84,6 +85,15 @@ export class UsersController {
     @CurrentPayload() payload: JwtPayloadType, // l'utilisateur connecté
   ) {
     return this.usersService.changeUserRole(payload.sub, userId, newRole);
+  }
+
+  @Patch('me/notifications-preferences')
+  @UseGuards(AuthGuard)
+  async updateNotificationPreferences(
+    @CurrentPayload() payload: JwtPayloadType,
+    @Body() dto: UpdateNotificationPreferencesDto,
+  ) {
+    return this.usersService.updateNotificationPreferences(payload.sub, dto);
   }
 
   @Get()

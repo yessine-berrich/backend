@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quelqu’un a aimé votre publication</title>
+  <style> /* même style de base que ci-dessus */ </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header" style="background:#48bb78;">
+      <h1 style="margin:0; font-size:24px;">Nouveau like ! ❤️</h1>
+    </div>
+
+    <div class="content">
+      <p>Bonjour,</p>
+      <p><strong><%= senderName %></strong> a aimé votre publication :</p>
+
+      <p style="font-weight:600; margin:24px 0;">
+        « <%= articleTitle %> »
+      </p>
+
+      <a href="<%= articleUrl %>" class="button" style="background:#48bb78;">
+        Voir l'article →
+      </a>
+
+      <p>Votre contenu continue de plaire !</p>
+    </div>
+
+    <div class="footer">
+      <!-- même footer que ci-dessus -->
+    </div>
+  </div>
+</body>
+</html>
